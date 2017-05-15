@@ -18,6 +18,10 @@ msgstr ""
 msgid "There was a problem logging into the Bullhorn API."
 msgstr ""
 
+#: bullhorn.php:bullhorn_job_search
+msgid "Careers postings were unavailabe, refresh to try again.""
+msgstr ""
+
 #: bullhorn-cv.php:463
 msgid "Sorry, your nonce did not verify."
 msgstr ""

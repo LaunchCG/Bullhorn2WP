@@ -433,7 +433,7 @@ class Shortcodes {
 		if ( $title ) {
 			$args['post_title_like'] = $title;
 		}
-		$possible_fields = apply_filters( 'bullhorn_shortcode_possiable_fields_and_order', array(
+		$possible_fields = apply_filters( 'bullhorn_shortcode_possible_fields_and_order', array(
 			'bullhorn_job_id',
 			'title',
 			'content',
@@ -448,6 +448,7 @@ class Shortcodes {
 			'Country',
 			'zip',
 		) );
+		// TODO - add custom fields to possiblefield list
 
 		$jobs = new \WP_Query( $args );
 		if ( $jobs->have_posts() ) {
