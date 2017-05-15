@@ -346,11 +346,46 @@ class Bullhorn_Connection {
 	}
 
 	/**
+	 * Bullhorn Users may have Custom Entity fields.
+	 *
+	 * Get list of custom mapped job fields.
+	 * @return string
+	 */
+	private static function get_custom_mapped_job_field_list ($settings = null) {
+		if (!isset($settings)) {
+			if (!isset(self::$settings)) {
+				$settings = (array) get_option( 'bullhorn_settings' );
+			} else {
+				$settings = self::$settings;
+			}
+		}
+
+		$custom_job_field_raw = $settings['custom_job_fields'];
+
+		if (empty($custom_job_field_raw)) {
+			$custom_job_field_list = array();
+		} else {
+			$custom_job_field_list = preg_split("/[,\s]/", $custom_job_field_raw);
+		}
+
+		// Remove empty or invalid fields
+		$custom_job_field_list = array_filter($custom_job_field_list, function($value) {
+			if ($value !== null &&
+				preg_match('/\w+/', $value)) {
+				return true;
+			}
+			return false;
+		});
+
+		return implode(',', $custom_job_field_list);
+	}
+
+	/**
 	 * This retreives all available jobs from Bullhorn.
 	 *
 	 * @return array
 	 */
-	private static function get_jobs_from_bullhorn () {
+	private static function get_jobs_from_bullhorn ($args = array()) {
 		// Use the specified description field if set, otherwise the default
 		$description = self::get_description_field();
 
@@ -365,6 +400,11 @@ class Bullhorn_Connection {
 			}
 		}
 
+		$custom_mapped_fields = self::get_custom_mapped_job_field_list($settings);
+
+		$fields_addendum = '';
+		if (!empty($custom_mapped_fields)) $fields_addendum = ',' . $custom_mapped_fields;
+
 		$start = 0;
 		$page  = 100;
 		$jobs  = array();
@@ -372,7 +412,7 @@ class Bullhorn_Connection {
 			$url    = self::$url . 'query/JobOrder';
 			$params = array(
 				'BhRestToken' => self::$session,
-				'fields'      => 'id,title,' . $description . ',dateAdded,categories,address,benefits,salary,educationDegree,employmentType,yearsRequired,clientCorporation,degreeList,skillList,bonusPackage,status',
+				'fields'      => 'id,title,' . $description . ',dateAdded,categories,address,benefits,salary,educationDegree,employmentType,yearsRequired,clientCorporation,degreeList,skillList,bonusPackage,status' . $fields_addendum,
 				//'fields'        => '*',
 				'where'       => $where,
 				'count'       => $page,
@@ -409,6 +449,151 @@ class Bullhorn_Connection {
 		}
 
 		return $jobs;
+	}
+
+	/**
+	 * This makes a job search request to Bullhorn.
+	 *
+	 * @return array
+	 */
+	public function bullhorn_job_search ($args = array()) {
+		// Use the specified description field if set, otherwise the default
+		$description = self::get_description_field();
+
+		$settings = (array) get_option( 'bullhorn_settings' );
+
+		$custom_mapped_fields = self::get_custom_mapped_job_field_list($settings);
+
+		$fields_addendum = '';
+		if (!empty($custom_mapped_fields)) $fields_addendum = ',' . $custom_mapped_fields;
+
+		$query = $args['query']; // This should be a required item.
+		$start = isset($args['start']) ? $args['start'] : 0;
+		$page = isset($args['count']) ? $args['count'] : 100;
+		$jobs  = array();
+
+		$logged_in = self::login();
+		if ( ! $logged_in ) {
+			return new WP_error(
+				__( 'Careers postings were unavailabe, refresh to try again.', 'bh-staffing-job-listing-and-cv-upload-for-wp' ),
+				"Connection Error",
+				array( 'status' => 500 )
+			);
+		}
+
+		$url    = self::$url . 'search/JobOrder';
+
+		$params = array(
+			'BhRestToken' => self::$session,
+			'fields'      => 'id,title,' . $description . ',dateAdded,categories,address,benefits,salary,educationDegree,employmentType,yearsRequired,clientCorporation,degreeList,skillList,bonusPackage,status' . $fields_addendum,
+			'query'       => $query,
+			'count'       => $page,
+			'start'       => $start,
+		);
+
+		if (isset($args['groupBy'])) $params['groupBy'] = $args['groupBy'];
+		if (isset($args['orderBy'])) $params['orderBy'] = $args['orderBy'];
+		if (isset($args['fields'])) $params['fields'] = $args['fields'];
+		if (isset($args['sort'])) $params['sort'] = $args['sort'];
+		if (isset($args['showTotalMatched'])) $params['showTotalMatched'] = $args['showTotalMatched'];
+
+		if ( isset( self::$settings['client_corporation'] ) and ! empty( self::$settings['client_corporation'] ) ) {
+			$ids = explode( ',', self::$settings['client_corporation'] );
+			$ids = array_map( 'trim', $ids );
+
+			$params['where'] .= ' AND (clientCorporation.id=' . implode( ' OR clientCorporation.id=', $ids ) . ')';
+		}
+
+		error_log('search request uri ' . print_r( $url . '?' . http_build_query( $params ), true ));
+
+		$response = self::request( $url . '?' . http_build_query( $params ), false );
+
+		if ( is_wp_error( $response ) ) {
+
+			return $response;
+		}
+
+		$body = json_decode( $response['body'] );
+
+		return $body;
+	}
+
+	/**
+	 * This makes a job query request to Bullhorn.
+	 *
+	 * @return array
+	 */
+	public function bullhorn_job_query ($args = array()) {
+		// Use the specified description field if set, otherwise the default
+		$description = self::get_description_field();
+
+		$settings = (array) get_option( 'bullhorn_settings' );
+		$custom_mapped_fields = self::get_custom_mapped_job_field_list($settings);
+
+		if (isset($args['where'])) {
+			$where = $args['where'];
+		} else {
+			// Default to search for Public Open, filter deleted.
+			$where = 'isPublic=1 AND isOpen=true AND isDeleted=false';
+
+			if ( isset( $settings['is_public'] ) ) {
+				$is_public = $settings['is_public'];
+				if ( 'false' === $is_public ) {
+					$where = 'isOpen=true AND isDeleted=false';
+				}
+			}
+		}
+
+		$fields_addendum = '';
+		if (!empty($custom_mapped_fields)) $fields_addendum = ',' . $custom_mapped_fields;
+
+		$start = isset($args['start']) ? $args['start'] : 0;
+		$page = isset($args['count']) ? $args['count'] : 100;
+		$jobs  = array();
+
+		$logged_in = self::login();
+		if ( ! $logged_in ) {
+			return new WP_error(
+				__( 'Careers postings were unavailabe, refresh to try again.', 'bh-staffing-job-listing-and-cv-upload-for-wp' ),
+				"Connection Error",
+				array( 'status' => 500 )
+			);
+		}
+
+		$url    = self::$url . 'query/JobBoardPost';
+
+		$params = array(
+			'BhRestToken' => self::$session,
+			'fields'      => 'id,title,' . $description . ',dateAdded,categories,address,benefits,salary,educationDegree,employmentType,yearsRequired,clientCorporation,degreeList,skillList,bonusPackage,status' . $fields_addendum,
+			//'fields'        => '*',
+			'where'       => $where,
+			'count'       => $page,
+			'start'       => $start,
+		);
+
+		if (isset($args['groupBy'])) $params['groupBy'] = $args['groupBy'];
+		if (isset($args['orderBy'])) $params['orderBy'] = $args['orderBy'];
+		if (isset($args['fields'])) $params['fields'] = $args['fields'];
+
+		if ( isset( self::$settings['client_corporation'] ) and ! empty( self::$settings['client_corporation'] ) ) {
+			$ids = explode( ',', self::$settings['client_corporation'] );
+			$ids = array_map( 'trim', $ids );
+
+			$params['where'] .= ' AND (clientCorporation.id=' . implode( ' OR clientCorporation.id=', $ids ) . ')';
+		}
+
+		error_log('query request uri ' . $url . '?' . print_r(http_build_query( $params ), true));
+
+		$response = self::request( $url . '?' . http_build_query( $params ), false );
+
+		if ( is_wp_error( $response ) ) {
+
+			return $response;
+		}
+
+		$body = json_decode( $response['body'] );
+
+		return $body;
 	}
 
 
@@ -471,7 +656,9 @@ class Bullhorn_Connection {
 		wp_set_object_terms( $id, $categories, 'bullhorn_category' );
 		wp_set_object_terms( $id, array( $job->address->state ), 'bullhorn_state' );
 
-		$create_json_ld = self::create_json_ld( $job, $categories );
+		$create_json_ld = self::create_json_ld( $job, $categories, self::get_custom_mapped_job_field_list());
+
+		error_log("adding more values to meta " .print_r($create_json_ld, true));
 
 		foreach ( $create_json_ld as $key => $val ) {
 			update_post_meta( $id, $key, $val );
@@ -506,9 +693,16 @@ class Bullhorn_Connection {
 		return true;
 	}
 
-	private static function create_json_ld ( $job, $categories ) {
+	private static function create_json_ld ( $job, $categories, $custom_fields = "" ) {
 		$description = self::get_description_field();
 		$address     = (array) $job->address;
+		$custom_field_list = array_filter(explode(',', $custom_fields), function($value) {
+			if ($value !== null &&
+				preg_match('/\w+/', $value)) {
+				return true;
+			}
+			return false;
+		});
 
 		$ld                                    = array();
 		$ld['@context']                        = 'http://schema.org';
@@ -559,6 +753,13 @@ class Bullhorn_Connection {
 		}
 		if ( isset( $job->bonusPackage ) ) {
 			$ld['incentiveCompensation'] = $job->bonusPackage;
+		}
+
+		foreach ($custom_field_list as $custom_field) {
+			error_log('We are requesting custom field ' . print_r($custom_field, true));
+			if (!isset($ld[$custom_field]) && isset($job->$custom_field)) {
+				$ld[$custom_field] = $job->$custom_field;
+			}
 		}
 
 		return $ld;

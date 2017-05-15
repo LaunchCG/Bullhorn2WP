@@ -29,6 +29,8 @@ require_once $path . 'custom-post-type.php';
 require_once $path . 'cron.php';
 require_once $path . 'shortcodes.php';
 require_once $path . 'bullhorn-cv.php';
+require_once $path . 'jobs.php';
+require_once $path . 'register-api.php';
 
 
 function bullhorn_load_plugin_textdomain() {
