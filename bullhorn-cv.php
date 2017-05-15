@@ -110,8 +110,6 @@ class Bullhorn_Extended_Connection extends Bullhorn_Connection {
 						$resume = self::parseResume();
 					}
 
-
-
 					if ( false === $resume ) {
 						// Redirect
 						$permalink = add_query_arg( array(
@@ -161,7 +159,7 @@ class Bullhorn_Extended_Connection extends Bullhorn_Connection {
 						self::link_candidate_to_job( $candidate );
 
 						// Attach resume file to candidate
-						error_log( 'wp_upload_file_request: ' . self::wp_upload_file_request( $candidate ) );
+						error_log( 'wp_upload_file_request: ' . self::wp_upload_file_request( $candidate, $file_data ) );
 
 						if ( apply_filters( 'bullhorn_delete_local_copy', false ) ) {
 
@@ -1241,7 +1239,7 @@ class Bullhorn_Extended_Connection extends Bullhorn_Connection {
 	private static function microtime_float() {
 		list( $usec, $sec ) = explode( ' ', microtime() );
 
-		return ( (float) $usec + (float) $sec ) * 100;
+		return absint( ( (float) $usec + (float) $sec ) * 100 );
 	}
 
 	/**
