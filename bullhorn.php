@@ -509,11 +509,18 @@ class Bullhorn_Connection {
 		$response = self::request( $url . '?' . http_build_query( $params ), false );
 
 		if ( is_wp_error( $response ) ) {
-
+			if ($response->get_error_code() == 401) {
+				$cache_id    = 'bullhorn_token';
+				$cache_token = delete_transient( $cache_id );
+			}
 			return $response;
 		}
 
 		$body = json_decode( $response['body'] );
+
+		if (isset($body->errorCode) && $body->errorCode == 401) {
+			$cache_token = delete_transient( 'bullhorn_token' );
+		}
 
 		return $body;
 	}
@@ -587,11 +594,18 @@ class Bullhorn_Connection {
 		$response = self::request( $url . '?' . http_build_query( $params ), false );
 
 		if ( is_wp_error( $response ) ) {
-
+			if ($response->get_error_code() == 401) {
+				$cache_id    = 'bullhorn_token';
+				$cache_token = delete_transient( $cache_id );
+			}
 			return $response;
 		}
 
 		$body = json_decode( $response['body'] );
+
+		if (isset($body->errorCode) && $body->errorCode == 401) {
+			$cache_token = delete_transient( 'bullhorn_token' );
+		}
 
 		return $body;
 	}

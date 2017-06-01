@@ -30,6 +30,7 @@ class Bullhorn_Settings {
 		}
 
 		if ( isset( $_GET['code'] ) ) {
+			delete_transient('bullhorn_token');
 			self::authorize();
 		}
 		//if ( isset( $_GET['sync'] ) && 'bullhorn' === $_GET['sync'] ) {
