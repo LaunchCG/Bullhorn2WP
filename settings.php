@@ -39,6 +39,7 @@ class Bullhorn_Settings {
 		}
 
 		if ( isset( $_GET['code'] ) ) {
+			delete_transient('bullhorn_token');
 			self::authorize();
 		}
 		//if ( isset( $_GET['sync'] ) && 'bullhorn' === $_GET['sync'] ) {
@@ -75,7 +76,7 @@ class Bullhorn_Settings {
 		add_settings_field( 'thanks_page', __( 'CV Thanks Page', 'bh-staffing-job-listing-and-cv-upload-for-wp' ), array( __CLASS__, 'thanks_page' ), 'bullhornwp', 'bullhorn_api' );
 		add_settings_field( 'listings_sort', __( 'Listings Sort', 'bh-staffing-job-listing-and-cv-upload-for-wp' ), array( __CLASS__, 'listings_sort' ), 'bullhornwp', 'bullhorn_api' );
 		add_settings_field( 'description_field', __( 'Description Field', 'bh-staffing-job-listing-and-cv-upload-for-wp' ), array( __CLASS__, 'description_field' ), 'bullhornwp', 'bullhorn_api' );
-
+		add_settings_field( 'custom_job_fields', __( 'Custom Mapped Job Fields', 'bh-staffing-job-listing-and-cv-upload-for-wp' ), array( __CLASS__, 'custom_job_fields_field' ), 'bullhornwp', 'bullhorn_api' );
 
 		add_settings_field( 'send_email', __( 'Email address for applications', 'bh-staffing-job-listing-and-cv-upload-for-wp' ), array( __CLASS__, 'send_email' ), 'bullhornwp', 'bullhorn_api' );
 
@@ -479,6 +480,21 @@ class Bullhorn_Settings {
 	}
 
 	/**
+	 * Displays the Custom Job Fields settings field.
+	 */
+	public static function custom_job_fields_field() {
+		$settings = (array) get_option( 'bullhorn_settings' );
+		$custom_job_fields = '';
+
+		if ( isset( $settings['custom_job_fields'] ) ) {
+			$custom_job_fields = $settings['custom_job_fields'];
+		}
+
+		echo '<input type="text" size="40" name="bullhorn_settings[custom_job_fields]" value="' . esc_attr( $custom_job_fields ) . '" />';
+		echo '<br><span class="description">' . __( 'This field is optional, but will add additional custom field data columns retreived from Bullhorn JobOrders. Please Specify data columns by name and comma seperated without spaces.', 'bh-staffing-job-listing-and-cv-upload-for-wp' ) . '</span>';
+	}
+
+	/**
 	 * Validates the user input
 	 *
 	 * @param array $input POST data
@@ -492,6 +508,7 @@ class Bullhorn_Settings {
 		$input['form_page']         = intval( $input['form_page'] );
 		$input['listings_sort']     = esc_html( $input['listings_sort'] );
 		$input['description_field'] = esc_html( $input['description_field'] );
+		$input['custom_job_fields'] = esc_html( $input['custom_job_fields'] );
 		$input['thanks_page']       = intval( $input['thanks_page'] );
 		$input['run_cron']          = esc_attr( $input['run_cron'] );
 		$input['cron_error_email']  = esc_attr( $input['cron_error_email'] );

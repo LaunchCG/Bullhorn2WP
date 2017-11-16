@@ -72,6 +72,8 @@ class Bullhorn_2_WP {
 		require_once 'bullhorn-cv.php';
 		require_once 'application-email.php';
 		require_once 'custom-post-type.php';
+		require_once 'jobs.php';
+		require_once 'register-api.php';
 
 		if ( 'wp-job-manager-addon' === self::$mode ) {
 			require_once 'wp-job-manager-addon.php';

@@ -440,7 +440,7 @@ class Bullhorn_Extended_Connection extends Bullhorn_Connection {
 			$resume->skillList          = array();
 		}
 
-		$resume = self::add_data_to_canditate_data( $resume, $profile_data );
+		$resume = self::add_data_to_candidate_data( $resume, $profile_data );
 
 		// Update candidate
 		$candidate = self::update_candidate( $candidate_id, $resume->candidate );
@@ -667,9 +667,27 @@ class Bullhorn_Extended_Connection extends Bullhorn_Connection {
 
 			return false;
 		}
-		$resume = self::add_data_to_canditate_data( $resume, $profile_data );
+		$resume = self::add_data_to_candidate_data( $resume, $profile_data );
 
 		$resume->candidate->source = 'New Website';
+
+		// API authentication
+		self::api_auth();
+
+		$url = add_query_arg(
+			array(
+				'BhRestToken' => self::$session,
+			), self::$url . 'entity/Candidate'
+		);
+
+		$response = wp_remote_get( $url, array( 'body' => wp_json_encode( $resume->candidate ), 'method' => 'PUT' ) );
+
+		$safety_count = 0;
+		while ( 500 === $response['response']['code'] && 5 > $safety_count ) {
+			error_log( 'Create candidate failed( ' . $safety_count . '): ' . serialize( $response ) );
+			$response = wp_remote_get( $url, array( 'body' => wp_json_encode( $resume->candidate ), 'method' => 'PUT' ) );
+			$safety_count ++;
+		}
 
 		if ( isset( $profile_data['phone'] ) ) {
 			$cv_phone = $resume->candidate->phone;
@@ -1407,7 +1425,7 @@ class Bullhorn_Extended_Connection extends Bullhorn_Connection {
 	 * @param $resume
 	 * @param $profile_data
 	 */
-	private static function add_data_to_canditate_data( $resume, $profile_data ) {
+	private static function add_data_to_candidate_data( $resume, $profile_data ) {
 // Make sure country ID is correct
 		if ( isset( $resume->candidate->address->countryID ) && is_null( $resume->candidate->address->countryID ) ) {
 			$resume->candidate->address->countryID = 1;
@@ -1548,7 +1566,7 @@ class Bullhorn_Extended_Connection extends Bullhorn_Connection {
 		unset( $resume->candidate->editHistoryValue );
 
 
-		return apply_filters( 'bullhorn_add_data_to_canditate_data', $resume, $profile_data );
+		return apply_filters( 'bullhorn_add_data_to_candidate_data', $resume, $profile_data );
 	}
 
 	private static function is_cv_required() {
